@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cart - GoFishing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #021a2f; /* Deep ocean navy */
+            --surface-color: #073559; /* Submarine blue */
+            --text-primary: #e0f2fe; /* Frost blue */
+            --text-secondary: #9ca3af; /* Soft gray */
+            --accent-color: #0ea5e9; /* Sky blue */
+            --accent-hover: #0284c7;
+            --card-border: rgba(14, 165, 233, 0.15);
+        }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+        }
+        header {
+            padding: 1.5rem 5%;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 0 5%;
+        }
+        .cart-item {
+            background-color: var(--surface-color);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item-info h3 {
+            margin: 0 0 0.5rem 0;
+        }
+        .item-price {
+            color: #10b981;
+            font-weight: 600;
+        }
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn-remove {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .summary {
+            background-color: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--card-border);
+            padding: 2rem;
+            border-radius: 16px;
+            margin-top: 2rem;
+            text-align: right;
+        }
+        .total {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-left: 1rem;
+        }
+        .nav-links a:hover {
+            color: white;
+        }
+        #message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+        .success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .error { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/" style="text-decoration: none; color: inherit;">GoFishing</a></h1>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/orders">📦 Ordini</a>
+            <a href="/login">Login</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <h2>Your Cart</h2>
+        
+        <div id="cartItems"></div>
+        
+        <div class="summary" id="cartSummary" style="display: none;">
+            <div class="total">Total: €<span id="totalPrice">0.00</span></div>
+            <button class="btn" id="checkoutBtn">Confirm Order</button>
+            <div id="message"></div>
+        </div>
+        
+        <div id="emptyState" style="text-align: center; color: var(--text-secondary); margin-top: 3rem; display: none;">
+            <p>Your cart is empty.</p>
+            <a href="/" class="btn" style="text-decoration: none; display: inline-block; margin-top: 1rem;">Back to Shop</a>
+        </div>
+    </div>
+
+    <script>
+        // Cart key namespaced by user — isolates carts across different accounts
+        function getCartKey() {
+            const uid = sessionStorage.getItem('userId');
+            return uid ? 'cart_' + uid : 'cart_guest';
+        }
+
+        function renderCart() {
+            const cart = JSON.parse(localStorage.getItem(getCartKey())) || [];
+            const container = document.getElementById('cartItems');
+            const summary = document.getElementById('cartSummary');
+            const emptyState = document.getElementById('emptyState');
+            
+            container.innerHTML = '';
+            
+            if (cart.length === 0) {
+                summary.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            summary.style.display = 'block';
+            
+            let totalCents = 0;
+            
+            cart.forEach((item, index) => {
+                totalCents += item.price_cents * item.quantity;
+                
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <div class="item-info">
+                        <h3>${item.name}</h3>
+                        <div class="item-price">€${(item.price_cents / 100).toFixed(2)}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <button class="btn-remove" onclick="updateQuantity(${index}, -1)">-</button>
+                        <span>${item.quantity}</span>
+                        <button class="btn-remove" onclick="updateQuantity(${index}, 1)">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            
+            document.getElementById('totalPrice').textContent = (totalCents / 100).toFixed(2);
+        }
+
+        window.updateQuantity = function(index, change) {
+            const cart = JSON.parse(localStorage.getItem(getCartKey())) || [];
+            if (!cart[index]) return;
+            
+            // Check stock limit
+            if (change > 0 && cart[index].quantity >= cart[index].stock) {
+                alert("You cannot add more of this item to the cart (max stock reached).");
+                return;
+            }
+            
+            cart[index].quantity += change;
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+            localStorage.setItem(getCartKey(), JSON.stringify(cart));
+            renderCart();
+        };
+
+        document.getElementById('checkoutBtn').addEventListener('click', async () => {
+            const cart = JSON.parse(localStorage.getItem(getCartKey())) || [];
+            if (cart.length === 0) return;
+            
+            const msgBox = document.getElementById('message');
+            msgBox.style.display = 'block';
+            msgBox.className = '';
+            
+            // Format for gRPC Gateway — price_cents is required by the orders service
+            const items = cart.map(c => ({
+                product_id: c.id,
+                quantity: c.quantity,
+                price_cents: c.price_cents
+            }));
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+
+                if (response.ok) {
+                    msgBox.className = 'success';
+                    msgBox.textContent = 'Order completed successfully!';
+                    localStorage.removeItem(getCartKey());
+                    setTimeout(() => window.location.href = '/', 2000);
+                } else if (response.status === 401) {
+                    msgBox.className = 'error';
+                    msgBox.textContent = 'You must login to place an order.';
+                    setTimeout(() => window.location.href = '/login', 2000);
+                } else {
+                    msgBox.className = 'error';
+                    msgBox.textContent = 'Error placing order.';
+                }
+            } catch (err) {
+                msgBox.className = 'error';
+                msgBox.textContent = 'Network error.';
+            }
+        });
+
+        renderCart();
+    </script>
+</body>
+</html>

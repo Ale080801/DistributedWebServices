@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - GoFishing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #021a2f; /* Deep ocean navy */
+            --surface: #073559; /* Submarine blue */
+            --primary: #0ea5e9; /* Sky blue */
+            --primary-hover: #0284c7;
+            --text-main: #e0f2fe; /* Frost blue */
+            --text-muted: #9ca3af; /* Soft gray */
+            --border: rgba(14, 165, 233, 0.15);
+            --error: #ef4444;
+            --success: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--surface);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        .panel {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        .panel h2 {
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-item {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-info h3 {
+            margin-bottom: 0.25rem;
+            font-size: 1.1rem;
+        }
+
+        .product-info p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .stock-control {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .stock-control input {
+            width: 80px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .stock-control button {
+            width: auto;
+            padding: 0.5rem 1rem;
+            background-color: var(--success);
+        }
+
+        .stock-control button:hover {
+            background-color: #16a34a;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.success {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .alert.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/" style="text-decoration: none; color: inherit;">GoFishing Admin</a></h1>
+        <div>
+            <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 500;">← Back to Shop</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Add Product Panel -->
+        <div class="panel">
+            <h2>Add New Product</h2>
+            <div id="addAlert" class="alert"></div>
+            <form id="addProductForm">
+                <div class="form-group">
+                    <label for="name">Product Name</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <input type="text" id="category" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="price">Price (in cents, e.g. 1000 for $10.00)</label>
+                    <input type="number" id="price" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="stock">Initial Stock</label>
+                    <input type="number" id="stock" min="0" value="0" required>
+                </div>
+                <button type="submit">Create Product</button>
+            </form>
+        </div>
+
+        <!-- Inventory Panel -->
+        <div class="panel">
+            <h2>Manage Inventory</h2>
+            <div id="stockAlert" class="alert"></div>
+            <div class="product-list" id="productList">
+                Loading products...
+            </div>
+            
+            <h2 style="margin-top: 2rem; color: var(--text-muted);">Archived Products</h2>
+            <div class="product-list" id="archivedProductList" style="opacity: 0.7;">
+                <!-- Archived products will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and display products
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/catalog?include_archived=true');
+                if (!response.ok) throw new Error('Failed to fetch catalog');
+                const data = await response.json();
+                
+                const list = document.getElementById('productList');
+                const archivedList = document.getElementById('archivedProductList');
+                list.innerHTML = '';
+                archivedList.innerHTML = '';
+
+                if (!data.products || data.products.length === 0) {
+                    list.innerHTML = '<p style="color: var(--text-muted)">No products found.</p>';
+                    archivedList.innerHTML = '<p style="color: var(--text-muted)">No archived products.</p>';
+                    return;
+                }
+
+                // For each product, we also need its stock. We fetch them in parallel.
+                const stockPromises = data.products.map(p => 
+                    fetch(`/api/inventory/${p.id}`).then(res => res.json()).catch(() => ({quantity: 0}))
+                );
+                
+                const stocks = await Promise.all(stockPromises);
+
+                data.products.forEach((p, index) => {
+                    const currentStock = stocks[index].quantity || 0;
+                    
+                    const div = document.createElement('div');
+                    div.className = 'product-item';
+                    
+                    if (p.is_archived) {
+                        div.innerHTML = `
+                            <div class="product-info">
+                                <h3>${p.name} (Archived)</h3>
+                                <p>ID: ${p.id} | ${(p.price_cents / 100).toFixed(2)} USD</p>
+                            </div>
+                            <div class="stock-control">
+                                <span style="color: var(--text-muted);">Stock: ${currentStock}</span>
+                            </div>
+                        `;
+                        archivedList.appendChild(div);
+                    } else {
+                        div.innerHTML = `
+                            <div class="product-info">
+                                <h3>${p.name}</h3>
+                                <p>ID: ${p.id} | ${(p.price_cents / 100).toFixed(2)} USD</p>
+                            </div>
+                            <div class="stock-control">
+                                <input type="number" id="stock-input-${p.id}" value="${currentStock}" min="0">
+                                <button onclick="updateStock(${p.id})">Update</button>
+                                <button onclick="archiveProduct(${p.id})" style="background-color: var(--error); margin-left: 0.5rem;" title="Archive Product">🗑️</button>
+                            </div>
+                        `;
+                        list.appendChild(div);
+                    }
+                });
+            } catch (err) {
+                document.getElementById('productList').innerHTML = `<p style="color: var(--error)">Error loading products: ${err.message}</p>`;
+            }
+        }
+
+        // Add a new product
+        document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alertDiv = document.getElementById('addAlert');
+            
+            const name = document.getElementById('name').value;
+            const category = document.getElementById('category').value;
+            const description = document.getElementById('description').value;
+            const price = parseInt(document.getElementById('price').value);
+            const stock = parseInt(document.getElementById('stock').value);
+
+            try {
+                const response = await fetch('/api/admin/catalog', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name, category, description, 
+                        price_cents: price, stock 
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || 'Failed to create product');
+                }
+
+                alertDiv.textContent = 'Product created successfully!';
+                alertDiv.className = 'alert success';
+                alertDiv.style.display = 'block';
+                
+                // Reset form and reload list
+                document.getElementById('addProductForm').reset();
+                setTimeout(() => alertDiv.style.display = 'none', 3000);
+                loadProducts();
+
+            } catch (err) {
+                alertDiv.textContent = err.message;
+                alertDiv.className = 'alert error';
+                alertDiv.style.display = 'block';
+            }
+        });
+
+        // Update existing product stock
+        async function updateStock(productId) {
+            const input = document.getElementById(`stock-input-${productId}`);
+            const newStock = parseInt(input.value);
+            const alertDiv = document.getElementById('stockAlert');
+
+            try {
+                const response = await fetch('/api/admin/inventory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: productId, quantity: newStock })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || 'Failed to update stock');
+                }
+
+                alertDiv.textContent = 'Stock updated successfully!';
+                alertDiv.className = 'alert success';
+                alertDiv.style.display = 'block';
+                setTimeout(() => alertDiv.style.display = 'none', 3000);
+                
+                // Briefly highlight the input to show success visually
+                const originalBg = input.style.backgroundColor;
+                input.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+                setTimeout(() => input.style.backgroundColor = originalBg, 500);
+
+            } catch (err) {
+                alertDiv.textContent = err.message;
+                alertDiv.className = 'alert error';
+                alertDiv.style.display = 'block';
+            }
+        }
+
+        // Archive product
+        async function archiveProduct(productId) {
+            if (!confirm('Are you sure you want to archive this product? It will be hidden from the store.')) return;
+            
+            const alertDiv = document.getElementById('stockAlert');
+            try {
+                const response = await fetch(`/api/admin/catalog/${productId}/archive`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || 'Failed to archive product');
+                }
+
+                alertDiv.textContent = 'Product archived successfully!';
+                alertDiv.className = 'alert success';
+                alertDiv.style.display = 'block';
+                setTimeout(() => alertDiv.style.display = 'none', 3000);
+                
+                loadProducts();
+            } catch (err) {
+                alertDiv.textContent = err.message;
+                alertDiv.className = 'alert error';
+                alertDiv.style.display = 'block';
+            }
+        }
+
+        // Initialize
+        loadProducts();
+    </script>
+</body>
+</html>

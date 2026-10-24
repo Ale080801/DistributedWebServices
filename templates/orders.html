@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I miei Ordini - GoFishing</title>
+    <meta name="description" content="Visualizza la cronologia dei tuoi ordini su GoFishing.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #021a2f;
+            --surface: #073559;
+            --surface-2: #0a4a7a;
+            --primary: #0ea5e9;
+            --primary-hover: #0284c7;
+            --text-main: #e0f2fe;
+            --text-muted: #7ea8c9;
+            --border: rgba(14, 165, 233, 0.18);
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        header {
+            padding: 1.2rem 5%;
+            background: rgba(2, 10, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-decoration: none;
+        }
+
+        nav { display: flex; gap: 1.5rem; align-items: center; }
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        nav a:hover, nav a.active { color: var(--primary); }
+
+        .btn-nav {
+            background: var(--primary);
+            color: #fff !important;
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .btn-nav:hover { background: var(--primary-hover) !important; transform: translateY(-1px); }
+
+        .container {
+            max-width: 900px;
+            margin: 3rem auto;
+            padding: 0 5%;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .page-subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Loading / Error / Empty states */
+        .state-box {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            color: var(--text-muted);
+        }
+        .state-box .icon { font-size: 3rem; margin-bottom: 1rem; }
+        .state-box h3 { color: var(--text-main); margin-bottom: 0.5rem; }
+        .state-box p { font-size: 0.9rem; }
+        .state-box a {
+            display: inline-block;
+            margin-top: 1.5rem;
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .state-box a:hover { text-decoration: underline; }
+
+        /* Order card */
+        .order-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .order-card:hover {
+            border-color: rgba(14, 165, 233, 0.45);
+            transform: translateY(-2px);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.2rem 1.5rem;
+            background: rgba(14, 165, 233, 0.06);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .order-id {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .order-id span {
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .order-date {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .order-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .status-confirmed { background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-pending   { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-cancelled { background: rgba(239, 68, 68, 0.15);  color: var(--error);   border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .order-items { padding: 1rem 1.5rem; }
+
+        .order-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.7rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .order-item-row:last-child { border-bottom: none; }
+
+        .item-info { display: flex; align-items: center; gap: 0.8rem; }
+        .item-icon {
+            width: 36px; height: 36px;
+            background: rgba(14, 165, 233, 0.12);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .item-name { font-weight: 500; color: var(--text-main); }
+        .item-qty  { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+        .item-price {
+            font-weight: 600;
+            color: var(--primary);
+            white-space: nowrap;
+        }
+
+        .order-footer {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0.9rem 1.5rem;
+            background: rgba(14, 165, 233, 0.04);
+            border-top: 1px solid var(--border);
+            gap: 0.5rem;
+        }
+        .order-total-label { font-size: 0.85rem; color: var(--text-muted); }
+        .order-total-value { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
+
+        /* Spinner */
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 4rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="/" class="logo">🎣 GoFishing</a>
+    <nav>
+        <a href="/">Catalogo</a>
+        <a href="/cart">🛒 Carrello</a>
+        <a href="/orders" class="active">📦 Ordini</a>
+        <a href="#" id="logoutBtn" style="display:none;">Logout</a>
+        <a href="/login" id="loginBtn" class="btn-nav">Accedi</a>
+    </nav>
+</header>
+
+<div class="container">
+    <h1 class="page-title">I miei Ordini</h1>
+    <p class="page-subtitle">Cronologia completa degli acquisti effettuati.</p>
+
+    <div id="ordersContainer">
+        <div class="spinner"></div>
+    </div>
+</div>
+
+<footer>
+    &copy; 2025 GoFishing. Tutti i diritti riservati.
+</footer>
+
+<script>
+    // -------------------------------------------------------------------------
+    // Sicurezza XSS: tutti i dati dinamici provenienti dall'API vengono sempre
+    // inseriti tramite textContent o createTextNode — MAI con innerHTML diretto.
+    // Questo garantisce che eventuali caratteri speciali (<, >, ", &, ') non
+    // vengano interpretati come HTML dal browser.
+    //
+    // Sicurezza SQL Injection: user_id non proviene mai dall'input utente.
+    // Il Gateway ricava lo userId dal JWT validato lato server, quindi anche
+    // un token manomesso viene rifiutato da ValidateToken prima di qualunque
+    // query. Le query SQL nel servizio Ordini usano placeholder parametrizzati
+    // (? in SQLite), rendendo impossibile l'iniezione di codice SQL.
+    // -------------------------------------------------------------------------
+
+    /**
+     * Crea un elemento HTML con il testo impostato in modo sicuro (anti-XSS).
+     * @param {string} tag - nome del tag HTML
+     * @param {string} text - testo da impostare con textContent
+     * @param {Object} attrs - attributi aggiuntivi (opzionale)
+     */
+    function safeEl(tag, text = '', attrs = {}) {
+        const el = document.createElement(tag);
+        if (text) el.textContent = text;
+        for (const [k, v] of Object.entries(attrs)) {
+            el.setAttribute(k, v);
+        }
+        return el;
+    }
+
+    /** Formatta i centesimi in EUR con due decimali */
+    function formatPrice(cents) {
+        return '€ ' + (cents / 100).toFixed(2);
+    }
+
+    /** Restituisce la classe CSS per il badge di stato */
+    function statusClass(s) {
+        if (s === 'confirmed') return 'status-confirmed';
+        if (s === 'cancelled') return 'status-cancelled';
+        return 'status-pending';
+    }
+
+    /** Formatta una data ISO in formato leggibile */
+    function formatDate(isoStr) {
+        if (!isoStr) return '—';
+        try {
+            return new Date(isoStr).toLocaleString('it-IT', {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        } catch (_) { return isoStr; }
+    }
+
+    /** Costruisce il DOM di una singola card ordine senza mai usare innerHTML con dati utente.
+     *  @param {Object} order - l'ordine
+     *  @param {Object} productNames - mappa product_id → nome prodotto
+     */
+    function buildOrderCard(order, productNames = {}) {
+        const card = document.createElement('article');
+        card.className = 'order-card';
+
+        // --- Header ---
+        const header = document.createElement('div');
+        header.className = 'order-header';
+
+        const idBox = document.createElement('div');
+        idBox.className = 'order-id';
+        idBox.textContent = 'Ordine #';
+        const idSpan = document.createElement('span');
+        idSpan.textContent = order.order_id;
+        idBox.appendChild(idSpan);
+
+        const dateEl = safeEl('div', formatDate(order.created_at), { class: 'order-date' });
+
+        const statusEl = safeEl('span', order.status, { class: 'order-status ' + statusClass(order.status) });
+
+        header.appendChild(idBox);
+        header.appendChild(dateEl);
+        header.appendChild(statusEl);
+        card.appendChild(header);
+
+        // --- Items ---
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'order-items';
+
+        let totalCents = 0;
+        const items = order.items || [];
+
+        if (items.length === 0) {
+            itemsDiv.appendChild(safeEl('p', 'Nessun articolo trovato.', { style: 'color: var(--text-muted); font-size: 0.9rem;' }));
+        } else {
+            items.forEach(item => {
+                const lineCents = (item.price_cents || 0) * (item.quantity || 1);
+                totalCents += lineCents;
+
+                const row = document.createElement('div');
+                row.className = 'order-item-row';
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'item-info';
+
+                const icon = safeEl('div', '🎣', { class: 'item-icon' });
+
+                const textDiv = document.createElement('div');
+                // Usa il nome dal catalogo se disponibile, altrimenti fallback a ID
+                const productName = productNames[item.product_id] || `Prodotto #${item.product_id}`;
+                const nameDiv = safeEl('div', productName, { class: 'item-name' });
+                const qtyDiv = safeEl('div', `Quantità: ${item.quantity}`, { class: 'item-qty' });
+                textDiv.appendChild(nameDiv);
+                textDiv.appendChild(qtyDiv);
+
+                infoDiv.appendChild(icon);
+                infoDiv.appendChild(textDiv);
+
+                const priceEl = safeEl('div', formatPrice(lineCents), { class: 'item-price' });
+
+                row.appendChild(infoDiv);
+                row.appendChild(priceEl);
+                itemsDiv.appendChild(row);
+            });
+        }
+
+        card.appendChild(itemsDiv);
+
+        // --- Footer (totale) ---
+        const footer = document.createElement('div');
+        footer.className = 'order-footer';
+
+        footer.appendChild(safeEl('span', 'Totale ordine', { class: 'order-total-label' }));
+        footer.appendChild(safeEl('span', formatPrice(totalCents), { class: 'order-total-value' }));
+        card.appendChild(footer);
+
+        return card;
+    }
+
+    // -------------------------------------------------------------------------
+    // Inizializzazione: controlla sessione, poi carica gli ordini
+    // -------------------------------------------------------------------------
+    async function init() {
+        const container = document.getElementById('ordersContainer');
+
+        // 1. Verifica sessione
+        let meData;
+        try {
+            const meResp = await fetch('/api/auth/me');
+            if (!meResp.ok) throw new Error('not logged in');
+            meData = await meResp.json();
+        } catch (_) {
+            // Non autenticato → redirect al login
+            window.location.href = '/login';
+            return;
+        }
+
+        // Aggiorna navbar
+        document.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = 'inline';
+
+        // 2. Carica il catalogo (anche archiviati) per ottenere i nomi dei prodotti.
+        // Costruiamo una mappa product_id → nome per il rendering degli ordini.
+        const productNames = {};
+        try {
+            const catResp = await fetch('/api/catalog?include_archived=true');
+            if (catResp.ok) {
+                const catData = await catResp.json();
+                (catData.products || []).forEach(p => {
+                    // Sicuro: p.name è una stringa usata con textContent, non innerHTML
+                    productNames[p.id] = p.name;
+                });
+            }
+        } catch (_) { /* fallback a ID se il catalogo non è raggiungibile */ }
+
+        // 3. Carica gli ordini (il backend usa il JWT per filtrare per userId)
+        let ordersData;
+        try {
+            const resp = await fetch('/api/orders');
+            if (!resp.ok) throw new Error('Errore nel caricamento degli ordini');
+            ordersData = await resp.json();
+        } catch (err) {
+            container.innerHTML = '';
+            const box = document.createElement('div');
+            box.className = 'state-box';
+            box.appendChild(safeEl('div', '⚠️', { class: 'icon' }));
+            box.appendChild(safeEl('h3', 'Errore di caricamento'));
+            box.appendChild(safeEl('p', err.message));
+            container.appendChild(box);
+            return;
+        }
+
+        container.innerHTML = '';
+
+        const orders = ordersData.orders || [];
+
+        if (orders.length === 0) {
+            const box = document.createElement('div');
+            box.className = 'state-box';
+            box.appendChild(safeEl('div', '📦', { class: 'icon' }));
+            box.appendChild(safeEl('h3', 'Nessun ordine ancora'));
+            box.appendChild(safeEl('p', 'Quando effettuerai un acquisto, lo vedrai qui.'));
+            const link = safeEl('a', '→ Vai al catalogo', { href: '/' });
+            box.appendChild(link);
+            container.appendChild(box);
+            return;
+        }
+
+        // Ordini dal più recente al più vecchio (già ordinati DESC dal backend)
+        orders.forEach(order => {
+            container.appendChild(buildOrderCard(order, productNames));
+        });
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/';
+    });
+
+    init();
+</script>
+</body>
+</html>

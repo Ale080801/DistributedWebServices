@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoFishing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #021a2f; /* Deep ocean navy */
+            --surface-color: #073559; /* Submarine blue */
+            --text-primary: #e0f2fe; /* Frost blue */
+            --text-secondary: #9ca3af; /* Soft gray */
+            --accent-color: #0ea5e9; /* Sky blue */
+            --accent-hover: #0284c7;
+            --card-border: rgba(14, 165, 233, 0.15);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            padding: 1.5rem 5%;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--card-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 5%;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .category-badge {
+            display: inline-block;
+            align-self: flex-start;
+            padding: 0.25rem 0.75rem;
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .product-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .product-desc {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0 0 1.5rem 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            box-orient: vertical;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stock-badge {
+            font-size: 0.875rem;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+        
+        .stock-badge.low {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .stock-badge.out {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-secondary);
+            grid-column: 1 / -1;
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            border: 1px dashed var(--card-border);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: scale(1.05);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>GoFishing</h1>
+        <nav class="nav-links" style="display: flex; align-items: center; gap: 1rem;">
+            <a href="/">Home</a>
+            <a href="/orders">📦 Ordini</a>
+            <a href="/cart" style="color: #60a5fa; text-decoration: none; font-weight: 500;">🛒 Cart (<span id="cartCount">0</span>)</a>
+            <span id="authNav"></span>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 style="margin-bottom: 2rem; font-weight: 600; color: var(--accent-color);">Explore Catalog</h2>
+        
+        <div class="products-grid">
+            {{if .Products}}
+                {{range .Products}}
+                <a href="/product/{{.Id}}" style="text-decoration: none; color: inherit; display: contents;">
+                    <div class="card">
+                        <span class="category-badge">{{.Category}}</span>
+                        <h3 class="product-name">{{.Name}}</h3>
+                        <p class="product-desc">{{.Description}}</p>
+                        
+                        <div class="card-footer">
+                            <div class="price">€{{formatPrice .PriceCents}}</div>
+                            
+                            {{if eq .Stock 0}}
+                                <span class="stock-badge out">Out of Stock</span>
+                            {{else if lt .Stock 5}}
+                                <span class="stock-badge low">Low Stock ({{.Stock}})</span>
+                            {{else}}
+                                <span class="stock-badge">In Stock ({{.Stock}})</span>
+                            {{end}}
+                        </div>
+                    </div>
+                </a>
+                {{end}}
+            {{else}}
+                <div class="empty-state">
+                    <h3 style="color: white; font-size: 1.25rem; margin-bottom: 0.5rem;">No products found</h3>
+                    <p>The catalog is currently empty.</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script>
+        // Cart key namespaced by user — isolates carts across different accounts
+        function getCartKey() {
+            const uid = sessionStorage.getItem('userId');
+            return uid ? 'cart_' + uid : 'cart_guest';
+        }
+
+        function updateCartCount() {
+            const cart = JSON.parse(localStorage.getItem(getCartKey())) || [];
+            const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartCount').textContent = count;
+        }
+
+        async function updateAuthNav() {
+            const nav = document.getElementById('authNav');
+            try {
+                const res = await fetch('/api/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    // Populate sessionStorage so this tab knows which user is active
+                    if (data.user_id) sessionStorage.setItem('userId', data.user_id);
+                    updateCartCount(); // Re-count with correct key after userId is set
+                    
+                    const userEmail = localStorage.getItem('userEmail_' + data.user_id) || `User ${data.user_id}`;
+                    const adminLink = data.is_admin ? '<a href="/admin" class="btn" style="background: rgba(59,130,246,0.15); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3); margin-right: 0.5rem; text-decoration: none;">Admin Panel</a>' : '';
+                    nav.innerHTML = `
+                        <span style="color: var(--text-secondary); font-size: 0.875rem; margin-right: 1rem;">${userEmail}</span>
+                        ${adminLink}
+                        <button onclick="logout()" class="btn" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">Logout</button>
+                    `;
+                } else {
+                    sessionStorage.removeItem('userId');
+                    nav.innerHTML = '<a href="/login" class="btn">Login</a>';
+                }
+            } catch {
+                nav.innerHTML = '<a href="/login" class="btn">Login</a>';
+            }
+        }
+
+        async function logout() {
+            const uid = sessionStorage.getItem('userId');
+            await fetch('/api/auth/logout', { method: 'POST' });
+            if (uid) localStorage.removeItem('cart_' + uid); // Clear this user's cart
+            sessionStorage.removeItem('userId');
+            window.location.reload();
+        }
+
+        updateCartCount();
+        updateAuthNav();
+    </script>
+</body>
+</html>
