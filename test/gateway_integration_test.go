@@ -132,7 +132,7 @@ func TestGateway_Integration(t *testing.T) {
 	// 3. Start the API Gateway
 	gw := gateway.NewGateway(catalogClient, authClient, nil, ordersClient)
 	mux := gw.SetupRoutes()
-	ts := httptest.NewTLSServer(mux) // Use HTTPS because auth_token cookie has Secure=true
+	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
 	// --- Integration Test Execution ---
@@ -151,7 +151,7 @@ func TestGateway_Integration(t *testing.T) {
 	}
 
 	// Manual cookie verification (httptest.Client() saves it for the next requests)
-	cookies := jar.Cookies(resp.Request.URL)
+	cookies := ts.Client().Jar.Cookies(resp.Request.URL)
 	var found bool
 	for _, c := range cookies {
 		if c.Name == "auth_token" {

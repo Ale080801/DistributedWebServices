@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/x509"
 	"database/sql"
 	"log"
 	"net"
@@ -15,7 +14,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -219,18 +217,8 @@ func main() {
 	}
 	defer db.Close()
 
-	// Connection to Auth Service (with TLS)
-	authCACert, err := os.ReadFile("./certs/ca-cert.pem")
-	if err != nil {
-		log.Fatalf("failed to read CA certificate: %v", err)
-	}
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(authCACert) {
-		log.Fatalf("failed to parse CA certificate")
-	}
-	authCreds := credentials.NewClientTLSFromCert(certPool, "")
-
-	authConn, err := grpc.NewClient(authAddr, grpc.WithTransportCredentials(authCreds))
+	// Connection to Auth Service (gRPC, without TLS for local development)
+	authConn, err := grpc.NewClient(authAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("failed to connect to auth service: %v", err)
 	}

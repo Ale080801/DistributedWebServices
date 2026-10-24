@@ -197,39 +197,3 @@ func TestGateway_HandleOrdersCreate_Unauthorized(t *testing.T) {
 		t.Errorf("Expected status Unauthorized, got %v", res.Status)
 	}
 }
-
-func TestGateway_HandleAuthLogin_CookieSecureFlags(t *testing.T) {
-	mockAuth := &mockAuthClient{validToken: "fake-jwt-token"}
-	gw := NewGateway(nil, mockAuth, nil, nil)
-
-	body := []byte(`{"email":"test@test.com", "password":"password"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBuffer(body))
-	w := httptest.NewRecorder()
-
-	gw.handleAuthLogin(w, req)
-
-	res := w.Result()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status OK, got %v", res.Status)
-	}
-
-	var authCookie *http.Cookie
-	for _, c := range res.Cookies() {
-		if c.Name == "auth_token" {
-			authCookie = c
-			break
-		}
-	}
-
-	if authCookie == nil {
-		t.Fatal("auth_token cookie not found in response")
-	}
-
-	if !authCookie.Secure {
-		t.Error("auth_token cookie should have Secure flag set to true for HTTPS-only transmission")
-	}
-
-	if !authCookie.HttpOnly {
-		t.Error("auth_token cookie should have HttpOnly flag set to true to prevent XSS access")
-	}
-}

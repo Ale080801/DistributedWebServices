@@ -151,7 +151,7 @@ func (g *Gateway) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    resp.Token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, // Cookie sent only over HTTPS
+		Secure:   false, // Set to true if using HTTPS
 		SameSite: http.SameSiteLaxMode,
 	})
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/x509"
 	"log"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"ecommerce-project/internal/proto"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -44,24 +42,14 @@ func main() {
 	catalogClient := proto.NewCatalogClient(catalogConn)
 	log.Printf("Connected to Catalog Service at %s", catalogAddr)
 
-	// Connect to Auth Service (with TLS — carries passwords)
-	authCACert, err := os.ReadFile(getEnvOrDefault("TLS_CA_CERT", "./certs/ca-cert.pem"))
-	if err != nil {
-		log.Fatalf("Failed to read CA certificate: %v", err)
-	}
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(authCACert) {
-		log.Fatalf("Failed to parse CA certificate")
-	}
-	authCreds := credentials.NewClientTLSFromCert(certPool, "")
-
-	authConn, err := grpc.NewClient(authAddr, grpc.WithTransportCredentials(authCreds))
+	// Connect to Auth Service
+	authConn, err := grpc.NewClient(authAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to Auth Service: %v", err)
 	}
 	defer authConn.Close()
 	authClient := proto.NewAuthServiceClient(authConn)
-	log.Printf("Connected to Auth Service at %s (TLS)", authAddr)
+	log.Printf("Connected to Auth Service at %s", authAddr)
 
 	// Connect to Inventory Service
 	inventoryConn, err := grpc.NewClient(inventoryAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -85,19 +73,16 @@ func main() {
 	gw := gateway.NewGateway(catalogClient, authClient, inventoryClient, ordersClient)
 	mux := gw.SetupRoutes()
 
-	// Setup HTTPS Server (TLS — protects credentials in transit)
-	tlsCertFile := getEnvOrDefault("TLS_CERT", "./certs/gateway-cert.pem")
-	tlsKeyFile := getEnvOrDefault("TLS_KEY", "./certs/gateway-key.pem")
-
+	// Setup HTTP Server
 	server := &http.Server{
 		Addr:    httpPort,
 		Handler: mux,
 	}
 
 	go func() {
-		log.Printf("API Gateway HTTPS server listening on %s", httpPort)
-		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("HTTPS server error: %v", err)
+		log.Printf("API Gateway HTTP server listening on %s", httpPort)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
 		}
 	}()
 

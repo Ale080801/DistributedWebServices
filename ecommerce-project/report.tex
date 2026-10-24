@@ -1,0 +1,288 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\geometry{a4paper, margin=2.5cm}
+
+% Code block configuration
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    rulecolor=\color{gray!30},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{orange},
+    showstringspaces=false
+}
+
+\title{\textbf{Distributed Programming Final Project}\\ \Large GoFishing: A Microservices E-Commerce Platform}
+\author{Name Surname \\ \small Student ID: 123456}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report describes the design, architecture, and implementation of "GoFishing", an e-commerce platform developed as the final project for the Distributed Programming course. The project applies distributed systems concepts in a practical scenario, adopting a microservices architecture based on Go, gRPC, and advanced architectural patterns to ensure loose coupling, security, and data consistency in a distributed environment.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+The "GoFishing" project is a fully functional e-commerce platform dedicated to selling fishing gear. The foundational idea is to overcome the limitations of monolithic architectures by creating a distributed, resilient, and scalable system.
+The main goal of the project is to demonstrate the application of distributed programming techniques, concurrency management, and fault tolerance in a realistic scenario, handling complex issues such as distributed transactions and inter-node communication.
+
+\section{Architecture and Design}
+The system was strictly designed following the \textbf{Microservices Architecture} pattern, combined with the \textbf{API Gateway} pattern. The entire system consists of independent macro-components, interacting over the network.
+
+\subsection{Frontend and Client-Side Cart Logic}
+Although the core of the project relies on the distributed backend, the frontend provides a dynamic and responsive user experience using \textbf{Vanilla JavaScript}, CSS, and HTML5.
+A crucial component of the frontend is the \textbf{Shopping Cart}, which is entirely managed client-side. The cart's state is maintained in memory using a JavaScript array. When a user interacts with the catalog, the DOM is updated dynamically without triggering full page reloads, mimicking a Single Page Application (SPA).
+
+\begin{lstlisting}[language=JavaScript, caption=Client-side Cart State Management]
+// Cart state maintained in memory
+let cart = [];
+
+function addToCart(productId, name, price) {
+    const existing = cart.find(item => item.product_id === productId);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        cart.push({ product_id: productId, name, price, quantity: 1 });
+    }
+    updateCartBadge();
+    renderCart(); // Securely updates the UI
+}
+\end{lstlisting}
+When the user proceeds to checkout, the JavaScript application serializes the cart array and sends an asynchronous HTTP POST request to the API Gateway. To ensure security against Cross-Site Scripting (XSS), the frontend strictly uses \texttt{document.createElement} and \texttt{textContent} to build the interface, deliberately avoiding \texttt{innerHTML}.
+
+\subsubsection{JavaScript in Every Template: The Client-Side Logic Layer}
+Although the HTML pages are rendered server-side by the Web Handlers (SSR), every single template embeds a \texttt{<script>} block containing JavaScript code that drives the dynamic, interactive behavior of the application. This creates a \textbf{dual-layer architecture}:
+
+\begin{enumerate}
+    \item \textbf{Server-Side Rendering (Web Handlers)}: When the user navigates to a URL (e.g., clicks a link), the corresponding Web Handler in \texttt{web\_handlers.go} fetches data via gRPC and compiles an HTML template, returning a full page to the browser.
+    \item \textbf{Client-Side Interactions (JavaScript + REST Handlers)}: Once the page is loaded, the embedded JavaScript takes over. User actions such as submitting a form, clicking ``Add to Cart'', or confirming an order trigger asynchronous \texttt{fetch()} calls to the REST API endpoints defined in \texttt{handlers.go}, which return JSON responses. The JavaScript then updates the DOM dynamically without requiring a full page reload.
+\end{enumerate}
+
+The following table summarizes the JavaScript role and the REST API endpoints called by each template:
+
+\begin{table}[h]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Template} & \textbf{API Endpoints} & \textbf{Purpose} \\
+\hline
+\texttt{index.html} & \texttt{GET /api/auth/me}, \texttt{POST /api/auth/logout} & Checks login status, updates navbar, counts cart items. \\
+\hline
+\texttt{login.html} & \texttt{POST /api/auth/login}, \texttt{GET /api/auth/me} & Submits login form, stores userId, redirects to home. \\
+\hline
+\texttt{register.html} & \texttt{POST /api/auth/register} & Submits registration form, redirects to login. \\
+\hline
+\texttt{product.html} & \textit{(none)} & Adds product to cart in \texttt{localStorage}, enforces stock limits. \\
+\hline
+\texttt{cart.html} & \texttt{POST /api/orders} & Renders cart, manages quantities, sends order on checkout. \\
+\hline
+\texttt{admin.html} & \texttt{GET /api/catalog}, \texttt{GET /api/inventory/\{id\}}, \texttt{POST /api/admin/catalog}, \texttt{POST /api/admin/inventory}, \texttt{POST /api/admin/catalog/\{id\}/archive} & Loads products and stock, creates products, updates stock, archives products. \\
+\hline
+\texttt{orders.html} & \texttt{GET /api/auth/me}, \texttt{GET /api/catalog}, \texttt{GET /api/orders} & Verifies auth, loads product names, renders order history. \\
+\hline
+\end{tabularx}
+\caption{JavaScript behavior and REST API usage across all frontend templates.}
+\label{tab:js-templates}
+\end{table}
+
+This design means that the Web Handlers and the REST Handlers serve complementary roles: the former deliver the \textit{page structure} (HTML skeleton with server-rendered data), while the latter provide the \textit{data layer} that the client-side JavaScript consumes for all interactive operations.
+
+\subsection{API Gateway}
+The API Gateway acts as the Single Point of Entry for client applications. It is an HTTP server that serves the static frontend assets and handles users' RESTful requests. Its architectural role is crucial: it abstracts the complexity of the underlying gRPC distributed architecture from the client. The Gateway securely manages authentication by extracting JWTs from \texttt{HttpOnly} cookies and embedding them into the metadata of outgoing gRPC calls.
+
+To ensure separation of concerns, the API Gateway's source code is organized into distinct files, each with specific responsibilities:
+
+\subsubsection{\texttt{cmd/api-gateway/main.go}}
+This is the entry point of the Gateway application. It is responsible for initializing the gRPC client connections to all backend microservices (Auth, Catalog, Inventory, Orders). Once the connections are established, it creates an instance of the \texttt{Gateway} struct, injects the gRPC clients, sets up the HTTP routing multiplexer, and finally starts the HTTP server listening on port \texttt{8080}.
+
+\subsubsection{\texttt{internal/gateway/handlers.go} (REST Handlers)}
+This file contains the core logic for the RESTful APIs used by the frontend via AJAX/Fetch requests. These handlers typically receive JSON payloads, translate them into Protobuf messages, invoke the corresponding backend gRPC method, and then format the gRPC response back into JSON. 
+For example, the \texttt{handleOrdersCreate} function reads the cart items from the JSON body, extracts the authentication cookie, and calls the \texttt{OrdersService.CreateOrder} gRPC endpoint.
+
+\subsubsection{\texttt{internal/gateway/web\_handlers.go} (Web Handlers)}
+Unlike the REST handlers that serve JSON, this file implements \textbf{Server-Side Rendering (SSR)}. It utilizes Go's standard \texttt{html/template} package to dynamically generate HTML pages. 
+When a user navigates to the home page (\texttt{/}), the \texttt{handleWebHome} function fetches the product list from the Catalog Service via gRPC, injects this data into the \texttt{index.html} template, and returns the compiled HTML to the browser. This hybrid approach allows the application to benefit from fast initial page loads and SEO-friendly content, while relying on the REST handlers for dynamic client-side interactions like the shopping cart.
+
+\subsubsection{Graceful Shutdown}
+To ensure high availability and prevent data corruption during deployments or server terminations, the API Gateway implements a \textbf{Graceful Shutdown} mechanism. Instead of abruptly terminating active connections when an OS signal (like \texttt{SIGTERM} or \texttt{SIGINT}) is received, the server stops accepting new connections and waits for ongoing HTTP requests to complete before fully shutting down.
+\begin{lstlisting}[language=Go, caption=Graceful Shutdown in API Gateway]
+// Listen for OS signals in a dedicated channel
+sig := make(chan os.Signal, 1)
+signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+<-sig // Block main thread until a signal is received
+
+// Give the server 5 seconds to finish ongoing requests
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+if err := server.Shutdown(ctx); err != nil {
+    log.Printf("HTTP server shutdown error: %v", err)
+}
+\end{lstlisting}
+This pattern, combined with the execution of the main HTTP server in a separate \texttt{goroutine}, guarantees that no user is abruptly disconnected during a checkout process if the Gateway needs to be restarted.
+
+\subsection{Backend Microservices}
+The backend is divided into four highly cohesive and loosely coupled services, which communicate exclusively via \textbf{gRPC}. Each service has been designed with specific responsibilities and technical patterns.
+
+\subsubsection{gRPC and Protobuf Integration}
+At the core of the microservices communication is the interaction between Protocol Buffers (\texttt{.proto}) contracts and the Go business logic. 
+The \texttt{.proto} files act as language-agnostic contracts defining the RPC methods and their request/response message structures, without containing any implementation details. 
+Using the \texttt{protoc} compiler, these contracts generate Go code (e.g., \texttt{auth.pb.go}, \texttt{auth\_grpc.pb.go}), which includes binary serialization logic and a Go \texttt{interface} representing the server. 
+The actual business logic resides in the service's \texttt{main.go} file, where a Go struct implements this generated interface. The critical integration point occurs during the server startup:
+\begin{lstlisting}[language=Go, caption=Registering the gRPC Server in main.go]
+// Linking the generated gRPC interface with the local Go implementation
+srv := grpc.NewServer()
+proto.RegisterAuthServiceServer(srv, &AuthServer{db: db})
+\end{lstlisting}
+This single line registers the local struct (\texttt{AuthServer}) with the gRPC framework, effectively turning standard local Go functions into network-callable APIs, completely abstracting the underlying network communication from the developer.
+
+
+\subsubsection{Auth Service}
+The Auth Service manages user identities and authentication. It stores credentials securely using the \texttt{bcrypt} hashing algorithm. Instead of relying on stateful server-side sessions, it implements stateless authentication using JSON Web Tokens (JWT). When a user successfully logs in, the service generates a signed JWT containing the \texttt{user\_id}.
+\begin{lstlisting}[language=Go, caption=JWT Token Generation in Auth Service]
+// Generating a secure JWT token upon successful login
+token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+    "user_id": user.Id,
+    "exp":     time.Now().Add(24 * time.Hour).Unix(),
+})
+tokenString, err := token.SignedString(jwtSecret)
+if err != nil {
+    return nil, status.Errorf(codes.Internal, "failed to sign token")
+}
+\end{lstlisting}
+
+Furthermore, the Auth Service exposes several RPC methods defined strictly by its \texttt{.proto} contract. This contract dictates the exact inputs and outputs for methods like \texttt{Login}, \texttt{Register}, and \texttt{ValidateToken}, ensuring type safety across the distributed system. 
+A prime example of how these methods are utilized is the \texttt{ValidateToken} RPC, which acts as a foundational security middleware for the entire platform. Whenever a client requests a protected resource (e.g., placing an order via the API Gateway), the Gateway first extracts the JWT from the HTTP cookie and invokes the \texttt{ValidateToken} method on the Auth Service via gRPC.
+\begin{lstlisting}[language=Go, caption=API Gateway acting as a bouncer using ValidateToken]
+// Inside the API Gateway handler
+valResp, err := g.auth.ValidateToken(context.Background(), &proto.ValidateTokenRequest{Token: token})
+if err != nil || !valResp.Valid {
+    http.Error(w, "Unauthorized", http.StatusUnauthorized)
+    return
+}
+// Proceed with the validated user_id (valResp.UserId)
+\end{lstlisting}
+This architectural pattern ensures that the API Gateway acts as a "bouncer." Downstream microservices (like Orders or Inventory) do not need to implement complex authentication logic; they simply trust that any request forwarded by the Gateway has already been securely authenticated by the Auth Service's contract-enforced methods.
+
+\subsubsection{Catalog Service}
+The Catalog Service manages the product inventory details (names, descriptions, prices). A significant design choice here is the implementation of a \textbf{soft-delete} mechanism. To maintain referential integrity with past orders, products are never physically deleted via \texttt{DELETE} statements. Instead, an \texttt{is\_archived} boolean flag is toggled.
+\begin{lstlisting}[language=Go, caption=Soft-Delete query in Catalog Service]
+// Retrieve only active products
+rows, err := s.db.QueryContext(ctx,
+    `SELECT id, name, description, category, price_cents, stock 
+     FROM products WHERE is_archived = 0`
+)
+\end{lstlisting}
+This ensures that historical orders can still correctly reference and display the names of products that are no longer available in the active store catalog.
+
+\subsubsection{Inventory Service}
+The Inventory Service handles the actual quantities of physical goods available for purchase. Since this service is subject to high concurrency (multiple users might attempt to buy the same limited item simultaneously), race conditions are a critical concern. Instead of implementing complex distributed locks at the application level, the service pushes the concurrency control down to the database's ACID engine using atomic conditional updates.
+\begin{lstlisting}[language=Go, caption=Atomic stock reservation preventing race conditions]
+// Reserve stock atomically only if sufficient quantity exists
+result, err := s.db.ExecContext(ctx,
+    "UPDATE stock SET quantity = quantity - ? WHERE product_id = ? AND quantity >= ?",
+    req.Quantity, req.ProductId, req.Quantity,
+)
+rowsAffected, _ := result.RowsAffected()
+if rowsAffected == 0 {
+    return nil, status.Errorf(codes.ResourceExhausted, "insufficient stock")
+}
+\end{lstlisting}
+
+\subsubsection{Orders Service (The Orchestrator)}
+The Orders Service manages user orders and acts as the orchestrator during the checkout process. Since an order spans multiple domains (Stock and Orders), and each service has its own isolated database, a single SQL transaction cannot be used. Therefore, the Orders Service implements the \textbf{Saga Pattern} with compensation transactions.
+It sequentially attempts to reserve stock for each item in the cart via the Inventory Service. If any reservation fails, it executes a \textbf{compensation logic} to release all previously reserved items, effectively rolling back the distributed transaction.
+\begin{lstlisting}[language=Go, caption=Compensation Logic (Saga Pattern) in Orders Service]
+// Attempt to reserve stock
+_, err := s.invClient.ReserveStock(ctx, &proto.ReserveStockRequest{...})
+
+if err != nil {
+    // Compensation: release the reservations already made before the failure
+    for _, r := range reserved {
+        s.invClient.ReleaseStock(ctx, &proto.ReleaseStockRequest{
+            ProductId: r.ProductId,
+            Quantity:  r.Quantity,
+        })
+    }
+    return nil, status.Errorf(codes.ResourceExhausted, "stock insufficient")
+}
+// Track successful reservation for potential future compensation
+reserved = append(reserved, &proto.ReserveStockRequest{...})
+\end{lstlisting}
+
+\subsection{Database-per-Service Pattern}
+To ensure true \textit{loose coupling}, each microservice exclusively owns and manages its isolated SQLite database. There are no shared databases, thus eliminating centralized bottlenecks and single points of failure at the storage level, allowing individual services to evolve and scale independently.
+
+\section{Technologies and Tools}
+The technology stack prioritizes modern and network-oriented tools:
+\begin{itemize}
+    \item \textbf{Programming Language}: Go (Golang), chosen for its excellent native support for concurrency (\textit{goroutines}) and building high-performance distributed systems.
+    \item \textbf{Communication}: \textbf{RESTful APIs} for external frontend-to-Gateway communication (using standard JSON over HTTP), and \textbf{gRPC} with Protocol Buffers (Protobuf) for internal inter-service communication. The use of strongly-typed \texttt{.proto} contracts prevents compatibility errors between backend services and reduces network overhead.
+    \item \textbf{Database}: SQLite, used as a lightweight yet fully-featured relational database engine for each service. It is ideal for simplifying deployments without requiring external containerized databases.
+    \item \textbf{Frontend}: Vanilla HTML, CSS, and \textbf{JavaScript}. The deliberate choice to avoid heavy frontend frameworks like React or Vue allowed the focus to remain on the distributed backend architecture while still delivering a highly interactive frontend.
+\end{itemize}
+
+\section{Software Engineering and Testing}
+Code quality is ensured by a comprehensive suite of Unit and Integration Tests. 
+The backend services use \textit{in-memory} SQLite databases (\texttt{:memory:}) for fast and isolated testing, verifying SQL constraints and data integrity without leaving residual files.
+The API Gateway leverages \textbf{Mock} gRPC servers (Dummy Servers) to test the HTTP APIs without needing the real backends to be active, promoting deterministic testing.
+\begin{lstlisting}[language=Go, caption=Mocking the Auth Service for Integration Testing]
+type dummyAuthServer struct {
+    proto.UnimplementedAuthServiceServer
+}
+func (s *dummyAuthServer) ValidateToken(ctx context.Context, req *proto.ValidateTokenRequest) (*proto.ValidateTokenResponse, error) {
+    if req.Token == "valid-test-token" {
+        return &proto.ValidateTokenResponse{Valid: true, UserId: 99}, nil
+    }
+    return &proto.ValidateTokenResponse{Valid: false}, nil
+}
+\end{lstlisting}
+
+Furthermore, the backend service tests follow Go's idiomatic \textbf{subtest convention} using \texttt{t.Run()}. Each service has a single top-level test function (e.g., \texttt{TestAuthServer}, \texttt{TestCatalogServer}) that acts as a container, within which individual test cases are registered as named subtests. This pattern provides several advantages: subtests share a common setup (such as the in-memory database initialization), can be run individually via \texttt{go test -run TestAuthServer/Register\_Success}, and produce structured, hierarchical output that clearly identifies which specific scenario failed.
+\begin{lstlisting}[language=Go, caption=Subtest pattern in Auth Service tests]
+func TestAuthServer(t *testing.T) {
+    // Shared setup: in-memory database
+    db, _ := database.NewAuthDB(":memory:")
+    defer db.Close()
+    server := &AuthServer{db: db}
+
+    t.Run("Register_Success", func(t *testing.T) {
+        res, err := server.Register(ctx, &proto.RegisterRequest{...})
+        if err != nil { t.Fatalf("unexpected error: %v", err) }
+    })
+
+    t.Run("Register_DuplicateEmail", func(t *testing.T) {
+        _, err := server.Register(ctx, &proto.RegisterRequest{...})
+        if err == nil { t.Fatal("expected error for duplicate") }
+    })
+    // ... additional subtests
+}
+\end{lstlisting}
+
+\section{Deployment and Execution}
+The project was developed embracing the \textit{loose coupling} principle even at the operational level. It is easily executable on any Windows or Linux machine that has the Go compiler and a standard C compiler (required for SQLite) installed.
+Automated scripts are provided for both Windows (\texttt{scripts/start-all.ps1}) and Linux (\texttt{scripts/start-all.sh}).
+These scripts automatically compile the 5 independent binaries and start them in the background on specific ports (e.g., \texttt{50051-50054} for gRPC and \texttt{8080} for the Gateway), making it a \textit{one-click} startup process.
+
+\section{Conclusions}
+The "GoFishing" project allowed for practical exploration and resolution of the typical trade-offs found in distributed systems (such as the CAP Theorem and architectural complexity vs. scalability).
+By choosing to avoid shortcuts like shared databases, and instead implementing genuine orchestration and compensation mechanisms to handle failures, the system represents a true \textit{cloud-native} application, ready for potential deployment on advanced orchestrators like Kubernetes.
+
+\end{document}

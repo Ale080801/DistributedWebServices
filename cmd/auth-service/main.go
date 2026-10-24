@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"log"
 	"net"
@@ -19,16 +18,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
 
 const (
-	dbPath       = "./data/auth.db"
-	grpcPort     = ":50052"
-	tlsCertFile  = "./certs/auth-cert.pem"
-	tlsKeyFile   = "./certs/auth-key.pem"
+	dbPath   = "./data/auth.db"
+	grpcPort = ":50052"
 )
 
 var jwtKey []byte
@@ -158,16 +154,8 @@ func main() {
 		log.Fatalf("failed to listen on port %s: %v", grpcPort, err)
 	}
 
-	// Load TLS certificate for encrypted gRPC transport
-	cert, err := tls.LoadX509KeyPair(tlsCertFile, tlsKeyFile)
-	if err != nil {
-		log.Fatalf("failed to load TLS credentials: %v", err)
-	}
-	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
-	creds := credentials.NewTLS(tlsConfig)
-
-	// Creation and registration of the gRPC server with TLS
-	srv := grpc.NewServer(grpc.Creds(creds))
+	// Creation and registration of the gRPC server
+	srv := grpc.NewServer()
 	proto.RegisterAuthServiceServer(srv, &AuthServer{db: db})
 	reflection.Register(srv)
 

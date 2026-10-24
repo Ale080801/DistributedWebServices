@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package catalog;
+option go_package = "ecommerce-project/internal/proto";
+
+message Product {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  int64 price_cents = 5;
+  int64 stock = 6;
+  bool is_archived = 7;
+}
+message CreateProductRequest {
+  string name = 1;
+  string description = 2;
+  string category = 3;
+  int64 price_cents = 4;
+  int64 stock = 5;
+}
+message CreateProductResponse {
+  int64 id = 1;
+}
+
+message ListProductsRequest {
+  bool include_archived = 1;
+}
+message ListProductsResponse {
+  repeated Product products = 1;
+}
+
+message GetProductRequest {
+  int64 id = 1;
+}
+
+message ArchiveProductRequest {
+  int64 id = 1;
+}
+message ArchiveProductResponse {
+  bool success = 1;
+}
+
+service Catalog {
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse) {};
+  rpc GetProduct(GetProductRequest) returns (Product) {};
+  rpc CreateProduct(CreateProductRequest) returns (CreateProductResponse);
+  rpc ArchiveProduct(ArchiveProductRequest) returns (ArchiveProductResponse);
+}
